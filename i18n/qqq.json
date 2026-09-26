@@ -15,7 +15,7 @@
 	"constel-suggestion-uses": "Number of sections using a suggested concept. Parameters:\n* $1 - formatted number\n* $2 - raw number, for PLURAL. § is the section sign; §§ its plural.",
 	"constel-form-title": "Title of the form that creates a section (§).",
 	"constel-form-concept-label": "Label of the concept field.",
-	"constel-form-concept-placeholder": "Placeholder of the concept field.",
+	"constel-form-concept-placeholder": "Placeholder of the concept field; a comma turns what was typed into a pill so another concept can be typed.",
 	"constel-form-submit": "Submit button of the section form.",
 	"constel-form-public-notice": "Shown until the reader creates their first section.",
 	"constel-form-saving": "Shown while saving.",

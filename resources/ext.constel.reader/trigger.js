@@ -11,7 +11,7 @@ const config = require( './config.json' );
 
 /**
  * @param {Element} root
- * @return {Object|null} {exact, prefix, suffix, start, rect}
+ * @return {Object|null} {exact, prefix, suffix, start, rect, range}
  */
 function currentSelection( root ) {
 	const sel = window.getSelection();
@@ -55,7 +55,8 @@ function currentSelection( root ) {
 		prefix: index.slice( Math.max( 0, start - context ), start ),
 		suffix: index.slice( end, Math.min( index.length, end + context ) ),
 		start,
-		rect: range.getBoundingClientRect()
+		rect: range.getBoundingClientRect(),
+		range: range.cloneRange()
 	};
 }
 

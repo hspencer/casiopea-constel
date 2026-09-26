@@ -31,6 +31,11 @@
 	line-height: 1.45;
 	box-shadow: var( --constel-lift );
 	cursor: grab;
+	/* Redimensionable desde la esquina (panel.js recuerda el tamaño). */
+	resize: both;
+	min-width: min( 16rem, calc( 100vw - 2 * var( --constel-s-4 ) ) );
+	min-height: 8rem;
+	max-width: calc( 100vw - 2 * var( --constel-s-4 ) );
 }
 
 .constel-panel--dragging {
@@ -269,6 +274,44 @@ a.constel-button--primary:is( :link, :visited, :hover, :active ) {
 	color: var( --constel-danger );
 }
 
+/* Conceptos del §: píldoras dentro del mismo campo (conceptpills.js). */
+.constel-concepts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --constel-s-1 );
+	align-items: center;
+	padding: var( --constel-s-1 );
+	border: 1px solid var( --constel-field-border );
+	border-radius: var( --constel-radius );
+	background: var( --constel-field-bg );
+	cursor: text;
+}
+
+.constel-concepts:focus-within {
+	border-color: var( --constel-focus-border );
+	box-shadow: var( --constel-focus-ring );
+}
+
+.constel-concepts .constel-pills__list {
+	display: contents;
+}
+
+.constel-concepts .constel-pills__field {
+	flex: 1 1 6rem;
+	min-width: 6rem;
+}
+
+/* El borde y el foco son del campo entero, no del input. */
+.constel-concepts .constel-pills__input,
+.constel-concepts .constel-pills__input:focus {
+	width: 100%;
+	padding: var( --constel-s-1 );
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	outline: 0;
+}
+
 .constel-edit .constel-chips {
 	margin-bottom: var( --constel-s-3 );
 }
@@ -342,7 +385,8 @@ a.constel-button--primary:is( :link, :visited, :hover, :active ) {
 
 .constel-gloss {
 	margin-top: var( --constel-s-1 );
-	resize: vertical;
+	/* Crece con el panel (que se redimensiona entero): sin agarre propio. */
+	resize: none;
 }
 
 /* La nota comenta su sección: va pegada a la cita, más adentro que su texto
@@ -420,4 +464,29 @@ a.constel-button--primary:is( :link, :visited, :hover, :active ) {
 .constel-panel__close:focus-visible {
 	outline: 0;
 	box-shadow: var( --constel-focus-ring );
+}
+
+/* ── Panel con tamaño elegido (al final: pisa lo anterior) ────────────── */
+
+/* Con tamaño elegido: sin tope de alto propio, y el sobrante va a la glosa
+ * (del formulario, o del único § del detalle). */
+.constel-panel--sized {
+	display: flex;
+	flex-direction: column;
+	max-height: calc( 100vh - 2 * var( --constel-s-4 ) );
+}
+
+.constel-panel--sized > .constel-panel__body,
+.constel-panel--sized .constel-form,
+.constel-panel--sized .constel-excerpt:only-of-type,
+.constel-panel--sized .constel-excerpt:only-of-type .constel-edit {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.constel-panel--sized .constel-panel__body .constel-gloss {
+	flex: 1 1 auto;
+	min-height: 4.5rem;
 }

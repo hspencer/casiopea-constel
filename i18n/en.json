@@ -15,7 +15,7 @@
 	"constel-suggestion-uses": "$1 {{PLURAL:$2|§|§§}}",
 	"constel-form-title": "New §",
 	"constel-form-concept-label": "Concept",
-	"constel-form-concept-placeholder": "Type or choose a concept",
+	"constel-form-concept-placeholder": "Type or choose; comma for another",
 	"constel-form-submit": "Create §",
 	"constel-form-public-notice": "Your sections, concepts and themes are public: anyone visiting the wiki can see them, with your username.",
 	"constel-form-saving": "Saving…",

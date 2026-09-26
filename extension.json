@@ -295,6 +295,7 @@
 				"ext.constel.ui/api.js",
 				"ext.constel.ui/panel.js",
 				"ext.constel.ui/autocomplete.js",
+				"ext.constel.ui/conceptpills.js",
 				"ext.constel.ui/variants.js",
 				"ext.constel.ui/detail.js",
 				"ext.constel.ui/icons.js"

@@ -1,13 +1,13 @@
 /**
- * Formulario del § (spec: SelectionPopup): concepto con autocompletado del
- * vocabulario compartido; variantes ofrecidas antes de crear una nueva
- * (VariantsSteered); aviso de datos públicos la primera vez
- * (ReadingIsPublicData); vista vieja informada sin perder lo escrito
- * (StaleViewReported).
+ * Formulario del § (spec: SelectionPopup): conceptos como píldoras con
+ * autocompletado del vocabulario compartido (una coma cierra cada uno);
+ * variantes ofrecidas antes de crear una nueva (VariantsSteered); aviso de
+ * datos públicos la primera vez (ReadingIsPublicData); vista vieja informada
+ * sin perder lo escrito (StaleViewReported).
  */
 const api = require( 'ext.constel.ui' ).api;
 const panel = require( 'ext.constel.ui' ).panel;
-const autocomplete = require( 'ext.constel.ui' ).autocomplete;
+const conceptPills = require( 'ext.constel.ui' ).conceptPills;
 const variants = require( 'ext.constel.ui' ).variants;
 
 function el( tag, className, text ) {
@@ -22,13 +22,14 @@ function el( tag, className, text ) {
 }
 
 /**
- * @param {Object} selection {exact, prefix, suffix, start, rect}
+ * @param {Object} selection {exact, prefix, suffix, start, rect, range}
  * @param {Object} ctx {pageId, revId, onCreated, returnFocus}
  */
 function open( selection, ctx ) {
 	const p = panel.open( {
 		label: mw.msg( 'constel-form-title' ),
 		near: selection.rect,
+		anchor: selection.range,
 		returnFocus: ctx.returnFocus
 	} );
 
@@ -43,14 +44,11 @@ function open( selection, ctx ) {
 	const inputId = 'constel-concept-input';
 	const label = el( 'label', 'constel-label', mw.msg( 'constel-form-concept-label' ) );
 	label.htmlFor = inputId;
-	const field = el( 'div', 'constel-field' );
-	const input = el( 'input', 'constel-input' );
-	input.id = inputId;
-	input.type = 'text';
-	input.required = true;
-	input.maxLength = require( './config.json' ).conceptMaxLength;
-	input.placeholder = mw.msg( 'constel-form-concept-placeholder' );
-	field.appendChild( input );
+	const concepts = conceptPills.create( {
+		id: inputId,
+		placeholder: mw.msg( 'constel-form-concept-placeholder' ),
+		maxLength: require( './config.json' ).conceptMaxLength
+	} );
 
 	const glossId = 'constel-gloss-input';
 	const glossLabel = el( 'label', 'constel-label', mw.msg( 'constel-form-gloss-label' ) );
@@ -76,7 +74,7 @@ function open( selection, ctx ) {
 	// Un solo botón: se descarta con × o Escape.
 	actions.append( submit );
 
-	form.append( title, quote, label, field, glossLabel, gloss );
+	form.append( title, quote, label, concepts.el, glossLabel, gloss );
 	if ( !Number( mw.user.options.get( 'constel-public-ack' ) ) ) {
 		form.append( el( 'p', 'constel-notice', mw.msg( 'constel-form-public-notice' ) ) );
 	}
@@ -84,44 +82,31 @@ function open( selection, ctx ) {
 	p.body.appendChild( form );
 	panel.reposition( selection.rect );
 
-	const combo = autocomplete.attach( input );
-	input.focus();
+	concepts.input.focus();
 
-	let send = null;
 	// Un solo envío a la vez: un doble Enter no crea dos §§ iguales.
 	let sending = false;
+	// El § nace con el primer concepto; los demás se le suman. Si uno pide
+	// elegir variante, los ya guardados salen del campo y el resto espera.
+	let excerptId = null;
+	let queue = [];
 
-	const showError = ( error, concept ) => {
-		feedback.innerHTML = error.html;
-		if ( error.code === 'variants' ) {
-			variants.render( feedback, error, concept, {
-				choose: ( variant ) => {
-					input.value = variant;
-					send( false );
-				},
-				createAnyway: () => send( true )
-			} );
-		} else if ( error.code === 'staleview' ) {
-			const reload = el( 'a', 'constel-link', mw.msg( 'constel-form-reload' ) );
-			reload.href = location.href;
-			feedback.append( ' ', reload );
+	const done = () => {
+		if ( !Number( mw.user.options.get( 'constel-public-ack' ) ) ) {
+			mw.user.options.set( 'constel-public-ack', '1' );
+			api.saveAck();
 		}
-		panel.reposition( selection.rect );
+		panel.close();
+		ctx.onCreated();
 	};
 
-	send = ( allowVariant ) => {
-		const concept = input.value.trim();
-		if ( !concept ) {
-			input.focus();
+	const step = ( allowVariant ) => {
+		if ( !queue.length ) {
+			done();
 			return;
 		}
-		if ( sending ) {
-			return;
-		}
-		sending = true;
-		submit.disabled = true;
-		feedback.textContent = mw.msg( 'constel-form-saving' );
-		api.write( {
+		const concept = queue[ 0 ];
+		const request = excerptId === null ? {
 			action: 'constel-createexcerpt',
 			pageid: ctx.pageId,
 			revid: ctx.revId,
@@ -130,27 +115,60 @@ function open( selection, ctx ) {
 			suffix: selection.suffix,
 			start: selection.start,
 			concept,
-			gloss: gloss.value.trim() || undefined,
-			allowvariant: allowVariant ? 1 : undefined
-		} ).then( ( result ) => {
-			if ( !Number( mw.user.options.get( 'constel-public-ack' ) ) ) {
-				mw.user.options.set( 'constel-public-ack', '1' );
-				api.saveAck();
+			gloss: gloss.value.trim() || undefined
+		} : { action: 'constel-codeexcerpt', excerpt: excerptId, concept };
+		request.allowvariant = allowVariant ? 1 : undefined;
+		api.write( request ).then( ( result ) => {
+			if ( excerptId === null ) {
+				excerptId = result.excerpt;
 			}
-			panel.close();
-			ctx.onCreated( result );
+			queue.shift();
+			concepts.remove( concept );
+			step( false );
 		}, ( code, result ) => {
 			sending = false;
 			submit.disabled = false;
-			showError( api.describeError( code, result ), concept );
+			const error = api.describeError( code, result );
+			feedback.innerHTML = error.html;
+			if ( error.code === 'variants' ) {
+				variants.render( feedback, error, concept, {
+					choose: ( variant ) => {
+						concepts.replace( concept, variant );
+						queue[ 0 ] = variant;
+						resume( false );
+					},
+					createAnyway: () => resume( true )
+				} );
+			} else if ( error.code === 'staleview' ) {
+				const reload = el( 'a', 'constel-link', mw.msg( 'constel-form-reload' ) );
+				reload.href = location.href;
+				feedback.append( ' ', reload );
+			}
+			panel.reposition( selection.rect );
 		} );
 	};
 
+	function resume( allowVariant ) {
+		if ( sending ) {
+			return;
+		}
+		sending = true;
+		submit.disabled = true;
+		feedback.textContent = mw.msg( 'constel-form-saving' );
+		step( allowVariant );
+	}
+
 	form.addEventListener( 'submit', ( e ) => {
 		e.preventDefault();
-		if ( !combo.isOpen() ) {
-			send( false );
+		if ( concepts.isOpen() || sending ) {
+			return;
 		}
+		queue = concepts.values();
+		if ( !queue.length ) {
+			concepts.input.focus();
+			return;
+		}
+		resume( false );
 	} );
 }
 

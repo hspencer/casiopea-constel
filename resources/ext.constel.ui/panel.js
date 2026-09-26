@@ -4,7 +4,11 @@
  * Se descarta con Escape y con activación fuera; retiene el foco mientras
  * está abierto y lo devuelve a quien lo abrió; se ubica dentro del viewport.
  * Se arrastra tomándolo por cualquier zona que no sea un control; una vez
- * movido por el lector, deja de reubicarse solo.
+ * movido por el lector, deja de reubicarse solo. Se redimensiona desde la
+ * esquina inferior derecha (sólo esa vez: cada panel nace con su tamaño).
+ *
+ * Posición de llamado: a la derecha del bloque del texto (párrafo, ítem,
+ * celda), sin taparlo, alineado con el inicio del § (opts.anchor).
  * Lleva la clase constel-ui: queda fuera del texto canónico.
  */
 let current = null;
@@ -14,6 +18,8 @@ let current = null;
  * @param {string} opts.label nombre accesible del diálogo
  * @param {DOMRect} opts.near rectángulo de referencia (viewport)
  * @param {Element|null} [opts.returnFocus]
+ * @param {Element|Range} [opts.anchor] el texto al que se refiere: el panel
+ *  se pone a su derecha
  * @return {{el: HTMLElement, body: HTMLElement, close: Function}}
  */
 function open( opts ) {
@@ -49,16 +55,19 @@ function open( opts ) {
 	el.addEventListener( 'keydown', onKey );
 	// En el siguiente ciclo, para no cerrarse con el mismo clic que lo abrió.
 	setTimeout( () => document.addEventListener( 'mousedown', onOutside ) );
-	const stopDrag = draggable( el, () => {
+	const markMoved = () => {
 		if ( current ) {
 			current.moved = true;
 		}
-	} );
+	};
+	const stopDrag = draggable( el, markMoved );
+	resizable( el, markMoved );
 
 	current = {
 		el,
 		body,
 		moved: false,
+		anchor: opts.anchor || null,
 		close: () => {
 			document.removeEventListener( 'mousedown', onOutside );
 			stopDrag();
@@ -69,8 +78,47 @@ function open( opts ) {
 			}
 		}
 	};
-	position( el, opts.near );
+	position( el, opts.near, current.anchor );
 	return current;
+}
+
+/* Zona de la esquina que es del agarre de redimensionar (px). */
+const GRIP = 18;
+
+/**
+ * @param {HTMLElement} el
+ * @param {PointerEvent} e
+ * @return {boolean} el puntero está en el agarre de redimensionar
+ */
+function onGrip( el, e ) {
+	const r = el.getBoundingClientRect();
+	return e.clientX > r.right - GRIP && e.clientY > r.bottom - GRIP;
+}
+
+/**
+ * Redimensionar es nativo (CSS resize); aquí sólo se fija el alto de partida
+ * para que quitar el tope no lo haga saltar. Con tamaño elegido, la glosa
+ * ocupa el alto sobrante (ui.css: .constel-panel--sized).
+ *
+ * @param {HTMLElement} el
+ * @param {Function} onResize se llama si el tamaño cambió
+ */
+function resizable( el, onResize ) {
+	el.addEventListener( 'pointerdown', ( e ) => {
+		if ( e.button !== 0 || !onGrip( el, e ) ) {
+			return;
+		}
+		const before = { w: el.offsetWidth, h: el.offsetHeight };
+		el.style.width = before.w + 'px';
+		el.style.height = before.h + 'px';
+		el.classList.add( 'constel-panel--sized' );
+		document.addEventListener( 'pointerup', () => {
+			const after = { w: el.offsetWidth, h: el.offsetHeight };
+			if ( after.w !== before.w || after.h !== before.h ) {
+				onResize();
+			}
+		}, { once: true } );
+	} );
 }
 
 /* Lo que se toma para escribir o elegir no inicia un arrastre. */
@@ -110,7 +158,7 @@ function draggable( el, onMove ) {
 		}
 	};
 	el.addEventListener( 'pointerdown', ( e ) => {
-		if ( e.button !== 0 || e.target.closest( NO_DRAG ) ) {
+		if ( e.button !== 0 || e.target.closest( NO_DRAG ) || onGrip( el, e ) ) {
 			return;
 		}
 		const r = el.getBoundingClientRect();
@@ -131,13 +179,73 @@ function close() {
 	}
 }
 
+/* Bloques de texto a cuya derecha va el panel. */
+const BLOCKS = 'p, li, dd, dt, blockquote, pre, td, th, h1, h2, h3, h4, h5, h6, ' +
+	'figcaption, .poem, .mw-parser-output';
+
 /**
- * Debajo de la referencia si cabe, si no encima; siempre dentro del viewport.
+ * A la derecha del bloque del texto; si ahí no cabe ni angostándolo hasta su
+ * mínimo, a la izquierda; si tampoco, false. Arriba alineado con el inicio
+ * del texto, dentro del viewport.
+ *
+ * @param {HTMLElement} el
+ * @param {Element|Range} anchor
+ * @return {boolean} se pudo ubicar al lado
+ */
+function beside( el, anchor ) {
+	let node = anchor instanceof Range ? anchor.commonAncestorContainer : anchor;
+	if ( node.nodeType !== Node.ELEMENT_NODE ) {
+		node = node.parentElement;
+	}
+	const blockEl = node && node.closest( BLOCKS );
+	if ( !blockEl || !document.contains( blockEl ) ) {
+		return false;
+	}
+	const margin = 8;
+	const gap = 16;
+	const block = blockEl.getBoundingClientRect();
+	const minWidth = 16 * parseFloat( getComputedStyle( document.documentElement ).fontSize );
+	const rightRoom = window.innerWidth - margin - ( block.right + gap );
+	const leftRoom = block.left - gap - margin;
+	// Ancho de nacimiento (el de CSS) salvo que no quepa.
+	if ( !el.classList.contains( 'constel-panel--sized' ) ) {
+		el.style.width = '';
+	}
+	let left;
+	if ( rightRoom >= minWidth ) {
+		if ( el.offsetWidth > rightRoom ) {
+			el.style.width = rightRoom + 'px';
+		}
+		left = block.right + gap;
+	} else if ( leftRoom >= minWidth ) {
+		if ( el.offsetWidth > leftRoom ) {
+			el.style.width = leftRoom + 'px';
+		}
+		left = block.left - gap - el.offsetWidth;
+	} else {
+		return false;
+	}
+	const top = Math.min(
+		anchor.getBoundingClientRect().top,
+		window.innerHeight - el.offsetHeight - margin
+	);
+	el.style.left = ( left + window.scrollX ) + 'px';
+	el.style.top = ( Math.max( margin, top ) + window.scrollY ) + 'px';
+	return true;
+}
+
+/**
+ * Al lado del texto (beside) si hay anclaje y lugar; si no, debajo de la
+ * referencia si cabe, si no encima; siempre dentro del viewport.
  *
  * @param {HTMLElement} el
  * @param {DOMRect} near
+ * @param {Element|Range|null} anchor
  */
-function position( el, near ) {
+function position( el, near, anchor ) {
+	if ( anchor && beside( el, anchor ) ) {
+		return;
+	}
 	const margin = 8;
 	const width = el.offsetWidth;
 	const height = el.offsetHeight;
@@ -181,7 +289,7 @@ function trapFocus( el, e ) {
  */
 function reposition( near ) {
 	if ( current && !current.moved ) {
-		position( current.el, near );
+		position( current.el, near, current.anchor );
 	}
 }
 

@@ -141,4 +141,4 @@ function attach( input, opts = {} ) {
 	return { isOpen: () => !list.hidden, close: closeList };
 }
 
-module.exports = { attach };
+module.exports = { attach, conceptSource };

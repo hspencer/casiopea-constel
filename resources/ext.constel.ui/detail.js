@@ -3,14 +3,15 @@
  * glosa y autor.
  *
  * Sobre un § propio es un formulario con los cambios EN ESPERA y un solo
- * botón al final: agregar un concepto, quitar conceptos (× los marca), editar
+ * botón al final: agregar conceptos (píldoras; una coma cierra cada uno),
+ * quitar conceptos (× los marca), editar
  * la glosa. "Guardar" aplica todo; si se quitaron todos los conceptos, el §
  * se borra (spec: UncodedExcerptVanishes) y el botón lo advierte. Quien
  * modera puede borrar §§ ajenos (OwnOperationsOnly).
  */
 const api = require( './api.js' );
 const panel = require( './panel.js' );
-const autocomplete = require( './autocomplete.js' );
+const conceptPills = require( './conceptpills.js' );
 const variants = require( './variants.js' );
 const icons = require( './icons.js' );
 
@@ -27,12 +28,13 @@ function el( tag, className, text ) {
 
 /**
  * @param {Array} excerpts los §§ bajo el punto
- * @param {Object} ctx {near, returnFocus, isMine, canAnnotate, canModerate, onChanged}
+ * @param {Object} ctx {near, anchor, returnFocus, isMine, canAnnotate, canModerate, onChanged}
  */
 function open( excerpts, ctx ) {
 	const p = panel.open( {
 		label: mw.msg( 'constel-detail-title' ),
 		near: ctx.near,
+		anchor: ctx.anchor,
 		returnFocus: ctx.returnFocus
 	} );
 	const title = el( 'p', 'constel-panel__title' );
@@ -118,18 +120,16 @@ function editor( excerpt, ctx ) {
 		chips.append( li );
 	} );
 
-	// 2. Agregar un concepto.
+	// 2. Agregar conceptos: píldoras; no se ofrecen los que ya tiene.
 	const addId = 'constel-add-' + excerpt.id;
 	const addLabel = el( 'label', 'constel-label', mw.msg( 'constel-detail-add' ) );
 	addLabel.htmlFor = addId;
-	const field = el( 'div', 'constel-field' );
-	const input = el( 'input', 'constel-input' );
-	input.id = addId;
-	input.type = 'text';
-	input.placeholder = mw.msg( 'constel-form-concept-placeholder' );
-	field.append( input );
-	const combo = autocomplete.attach( input );
-	input.addEventListener( 'input', () => refresh() );
+	const adding = conceptPills.create( {
+		id: addId,
+		placeholder: mw.msg( 'constel-form-concept-placeholder' ),
+		exclude: excerpt.concepts.map( ( c ) => c.label ),
+		onChange: () => refresh()
+	} );
 
 	// 3. Glosa.
 	const glossId = 'constel-gloss-' + excerpt.id;
@@ -153,7 +153,8 @@ function editor( excerpt, ctx ) {
 	save.type = 'submit';
 	actions.append( save );
 
-	const deletesExcerpt = () => removing.size === excerpt.concepts.length && !input.value.trim();
+	const deletesExcerpt = () => removing.size === excerpt.concepts.length &&
+		!adding.values().length;
 	function refresh() {
 		const danger = deletesExcerpt();
 		save.textContent = mw.msg( danger ? 'constel-detail-save-delete' : 'constel-detail-save' );
@@ -168,24 +169,28 @@ function editor( excerpt, ctx ) {
 	};
 
 	// Orden: agregar primero (así quitar todos y agregar uno no borra el §),
-	// luego la glosa, al final quitar.
+	// luego la glosa, al final quitar. Cada concepto nuevo va por separado:
+	// si uno pide elegir variante, los ya sumados salen del campo y se retoma
+	// desde ése. La cadena es una Promise nativa, que lleva UN solo motivo de
+	// rechazo: el error de la API viaja empaquetado.
+	const write = ( params, concept ) => api.write( params ).then( null,
+		( code, result ) => $.Deferred().reject( { code, result, concept } ) );
 	const apply = ( allowVariant ) => {
-		const concept = input.value.trim();
 		const newGloss = gloss.value.trim();
 		let chain = Promise.resolve();
-		if ( concept ) {
-			chain = chain.then( () => api.write( {
+		adding.values().forEach( ( concept, i ) => {
+			chain = chain.then( () => write( {
 				action: 'constel-codeexcerpt', excerpt: excerpt.id, concept,
-				allowvariant: allowVariant ? 1 : undefined
-			} ) );
-		}
+				allowvariant: allowVariant && i === 0 ? 1 : undefined
+			}, concept ).then( () => adding.remove( concept ) ) );
+		} );
 		if ( newGloss !== ( excerpt.gloss || '' ) ) {
-			chain = chain.then( () => api.write( {
+			chain = chain.then( () => write( {
 				action: 'constel-glossexcerpt', excerpt: excerpt.id, gloss: newGloss
 			} ) );
 		}
 		removing.forEach( ( id ) => {
-			chain = chain.then( () => api.write( {
+			chain = chain.then( () => write( {
 				action: 'constel-uncodeexcerpt', excerpt: excerpt.id, concept: id
 			} ) );
 		} );
@@ -193,13 +198,13 @@ function editor( excerpt, ctx ) {
 		chain.then( () => {
 			panel.close();
 			ctx.onChanged();
-		}, ( code, result ) => {
+		}, ( { code, result, concept } ) => {
 			const error = api.describeError( code, result );
 			if ( error.code === 'variants' ) {
 				save.disabled = false;
 				variants.render( feedback, error, concept, {
 					choose: ( v ) => {
-						input.value = v;
+						adding.replace( concept, v );
 						apply( false );
 					},
 					createAnyway: () => apply( true )
@@ -213,12 +218,12 @@ function editor( excerpt, ctx ) {
 
 	form.addEventListener( 'submit', ( e ) => {
 		e.preventDefault();
-		if ( !combo.isOpen() && !save.disabled ) {
+		if ( !adding.isOpen() && !save.disabled ) {
 			apply( false );
 		}
 	} );
 
-	form.append( chips, addLabel, field, glossLabel, gloss, feedback, actions );
+	form.append( chips, addLabel, adding.el, glossLabel, gloss, feedback, actions );
 	return form;
 }
 

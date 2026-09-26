@@ -43,6 +43,8 @@ function main( root ) {
 		}
 		detail.open( here, {
 			near: target.getBoundingClientRect(),
+			// Al lado del inicio del (primer) §, no de donde se hizo clic.
+			anchor: root.querySelector( '[data-constel-excerpt="' + here[ 0 ].id + '"]' ) || target,
 			returnFocus: target.closest( '[tabindex="0"]' ) || target,
 			isMine,
 			canAnnotate: cfg.canAnnotate,

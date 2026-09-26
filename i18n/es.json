@@ -15,7 +15,7 @@
 	"constel-suggestion-uses": "$1 {{PLURAL:$2|§|§§}}",
 	"constel-form-title": "Nueva sección",
 	"constel-form-concept-label": "Concepto",
-	"constel-form-concept-placeholder": "Escribe o elige un concepto",
+	"constel-form-concept-placeholder": "Escribe o elige; coma para otro",
 	"constel-form-submit": "Crear sección",
 	"constel-form-public-notice": "Tus secciones, conceptos y temas son públicos: cualquiera que visite la wiki puede verlos, con tu nombre de usuario.",
 	"constel-form-saving": "Guardando…",

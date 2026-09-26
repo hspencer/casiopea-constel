@@ -6,6 +6,10 @@
  * página se desplaza hasta el §.
  *
  * Sólo lee las marcas que ya dibujó marks.js: no mide texto por su cuenta.
+ *
+ * Un § nuevo, o uno que ganó conceptos, entra con una animación (el trazo
+ * brota del eje y deja una onda de su color) y sus conceptos se asoman un
+ * momento junto a él. La primera pintura de la página no se anima.
  */
 const marks = require( './marks.js' );
 
@@ -19,17 +23,34 @@ let items = [];
 let observer = null;
 let observedRoot = null;
 
+/* Conceptos de cada § en la pasada anterior (id → rótulos), y lo que entra. */
+let known = null;
+let fresh = new Set();
+let freshAt = 0;
+let freshTimer = null;
+/* Lo que dura la entrada (ms); igual que la onda en reader.css. */
+const FRESH_MS = 1400;
+/* Cuánto se asoman los conceptos nuevos (ms). */
+const PEEK_MS = 2200;
+
 function firstMark( id ) {
 	return root.querySelector( '.' + marks.MARK_CLASS + '[data-constel-excerpt="' + id + '"]' );
 }
 
-function hideTip() {
-	if ( tip ) {
+/**
+ * @param {boolean} [endPeek] también si los conceptos se están asomando (la
+ *  barra es fija: desplazar o redibujar no los deja fuera de lugar)
+ */
+function hideTip( endPeek ) {
+	if ( tip && ( endPeek === true || !tip.classList.contains( 'constel-minimap__tip--peek' ) ) ) {
+		clearTimeout( freshTimer );
 		tip.hidden = true;
+		tip.classList.remove( 'constel-minimap__tip--peek' );
 	}
 }
 
 function showTip( tick ) {
+	hideTip( true );
 	tip.textContent = tick.dataset.labels;
 	tip.hidden = false;
 	const r = tick.getBoundingClientRect();
@@ -44,7 +65,7 @@ function go( tick ) {
 	if ( !mark ) {
 		return;
 	}
-	hideTip();
+	hideTip( true );
 	const still = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 	mark.scrollIntoView( { block: 'center', behavior: still ? 'auto' : 'smooth' } );
 	mark.focus( { preventScroll: true } );
@@ -77,9 +98,9 @@ function ensureBar() {
 	};
 	bar.addEventListener( 'mouseover', onEnter );
 	bar.addEventListener( 'focusin', onEnter );
-	bar.addEventListener( 'mouseleave', hideTip );
-	bar.addEventListener( 'focusout', hideTip );
-	window.addEventListener( 'scroll', hideTip, { passive: true } );
+	bar.addEventListener( 'mouseleave', () => hideTip( true ) );
+	bar.addEventListener( 'focusout', () => hideTip( true ) );
+	window.addEventListener( 'scroll', () => hideTip(), { passive: true } );
 
 	// El texto y la ventana cambian de alto (imágenes que cargan, plegables,
 	// cambio de tamaño): se vuelven a ubicar los trazos.
@@ -93,10 +114,12 @@ function ensureBar() {
 
 /**
  * Ubica los trazos según el alto actual del texto y de la barra.
+ *
+ * @return {HTMLElement|null} el primer trazo que está entrando
  */
 function layout() {
 	if ( !bar || !root ) {
-		return;
+		return null;
 	}
 	bar.hidden = !items.length;
 	const height = bar.clientHeight;
@@ -106,7 +129,7 @@ function layout() {
 	const ticks = document.createDocumentFragment();
 	if ( !items.length || !height || !total ) {
 		bar.replaceChildren();
-		return;
+		return null;
 	}
 
 	// Altura de cada § (su primera marca, que es la que lleva el foco).
@@ -131,6 +154,9 @@ function layout() {
 		}
 	}
 
+	const elapsed = performance.now() - freshAt;
+	const freshIds = fresh.size && elapsed < FRESH_MS ? fresh : new Set();
+	let firstFresh = null;
 	for ( const g of groups ) {
 		const labels = [];
 		g.members.forEach( ( m ) => m.excerpt.concepts.forEach( ( c ) => {
@@ -154,9 +180,50 @@ function layout() {
 		tick.dataset.excerpt = String( lead.excerpt.id );
 		tick.dataset.labels = labels.join( ' · ' );
 		tick.setAttribute( 'aria-label', mw.msg( 'constel-mark-label', labels.join( ', ' ) ) );
+		// Si un relayout (el texto cambió de alto) rehace el trazo a media
+		// entrada, la animación sigue donde iba en vez de empezar de nuevo.
+		if ( g.members.some( ( m ) => freshIds.has( m.excerpt.id ) ) ) {
+			tick.classList.add( 'constel-minimap__tick--fresh' );
+			tick.style.setProperty( '--constel-fresh-delay', -Math.round( elapsed ) + 'ms' );
+			firstFresh = firstFresh || tick;
+		}
 		ticks.append( tick );
 	}
 	bar.replaceChildren( ticks );
+	return firstFresh;
+}
+
+/**
+ * Los conceptos del § que entra se asoman junto a su trazo y se van solos.
+ *
+ * @param {HTMLElement} tick
+ */
+function peek( tick ) {
+	showTip( tick );
+	tip.classList.add( 'constel-minimap__tip--peek' );
+	freshTimer = setTimeout( () => hideTip( true ), PEEK_MS );
+}
+
+/**
+ * §§ que no estaban en la pasada anterior o que ganaron conceptos.
+ *
+ * @param {Array} list items
+ * @return {Set<number>}
+ */
+function entering( list ) {
+	const now = new Map( list.map( ( i ) => [ i.excerpt.id,
+		i.excerpt.concepts.map( ( c ) => c.label ) ] ) );
+	const found = new Set();
+	if ( known ) {
+		now.forEach( ( labels, id ) => {
+			const before = known.get( id );
+			if ( !before || labels.some( ( l ) => !before.includes( l ) ) ) {
+				found.add( id );
+			}
+		} );
+	}
+	known = now;
+	return found;
 }
 
 /**
@@ -182,7 +249,17 @@ function update( contentRoot, excerpts, isMine ) {
 		observedRoot = root;
 	}
 	hideTip();
-	layout();
+	const found = entering( items );
+	if ( found.size ) {
+		fresh = found;
+		freshAt = performance.now();
+	}
+	const tick = layout();
+	// Uno solo (lo que se acaba de anotar): se asoman sus conceptos. Muchos
+	// (cambio de alcance) sólo entran.
+	if ( tick && found.size === 1 ) {
+		peek( tick );
+	}
 }
 
 module.exports = { update };
