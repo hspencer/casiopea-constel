@@ -40,7 +40,9 @@
 -- la glosa cronológica del Lector de constel y las colecciones de corpus
 -- (p. ej. filtrar el mapa por "Amereida"). El minimap de §§ en la página
 -- sí entró (2026-09-25, pedido del usuario); es presentación del
--- resaltado, así que vive en el código (minimap.js), no aquí.
+-- resaltado, así que vive en el código (minimap.js), no aquí. Incorpora al
+-- instante los §§ nuevos o que ganan conceptos, con una entrada animada
+-- (2026-09-26).
 
 ------------------------------------------------------------
 -- External Entities
@@ -714,8 +716,28 @@ surface SelectionPopup {
         -- Al terminar una selección (ratón, táctil o teclado) de al menos
         -- config.selection_min_length caracteres, contenida por completo
         -- en el cuerpo de contenido, aparece junto a ella la afordancia
-        -- "§". Activarla abre el campo de concepto con el foco puesto y un
+        -- "§". Activarla abre el campo de conceptos con el foco puesto y un
         -- segundo campo, opcional, para la glosa.
+
+    @guarantee SeveralConceptsAtOnce
+        -- El campo de conceptos admite varios (decisión 2026-09-26): una
+        -- coma, o elegir una sugerencia, vuelve lo escrito una píldora
+        -- dentro del mismo campo; × o Retroceso con el campo vacío la
+        -- quitan. Lo escrito sin coma también cuenta al crear. El § nace
+        -- con el primero (ReaderCreatesExcerpt) y los demás se le suman
+        -- (ReaderCodesExcerpt), uno a uno: si uno pide elegir variante
+        -- (VariantsSteered), los ya guardados salen del campo y se retoma
+        -- desde ése. Lo mismo al agregar conceptos a un § propio
+        -- (PageReading), donde no se ofrecen los que el § ya tiene.
+
+    @guarantee PanelBesideText
+        -- El panel (formulario del § y detalle) nace a la derecha del
+        -- bloque del texto (párrafo, ítem, celda), sin taparlo, con su
+        -- borde superior a la altura del inicio del § (decisión
+        -- 2026-09-26). Si ahí no cabe ni angostado a su mínimo, va a la
+        -- izquierda; si tampoco, bajo la selección. El lector puede
+        -- moverlo y redimensionarlo; con más alto, la glosa crece con él.
+        -- El tamaño elegido no se recuerda: cada panel nace igual.
 
     @guarantee SharedVocabularyAutocomplete
         -- El campo de concepto sugiere, con coincidencia difusa, el
@@ -874,7 +896,14 @@ surface ConceptDetail {
         -- Quien modera renombra el concepto seleccionado en su propio
         -- título del panel, que se edita en su lugar como el de un tema
         -- (Intro o salir guarda, Esc cancela). Fusionar se ofrece bajo el
-        -- mapa, en una sola línea (ícono, campo, botón) y sin encabezado.
+        -- mapa, en una sola línea y sin encabezado, nombrando el concepto
+        -- seleccionado: «Fusionar «X» con [campo] [Fusionar]». El campo
+        -- autocompleta y sólo acepta conceptos existentes (no el mismo): el
+        -- botón se habilita con uno elegido o escrito tal cual se llama
+        -- (identidad estricta). Confirmar es un diálogo modal al centro de
+        -- la pantalla: «Vamos a fusionar «X» en «Y». ¿Lo confirmas?», con
+        -- la consecuencia debajo; Esc o un clic fuera cancelan (decisión
+        -- 2026-09-26).
 
     @guarantee OwnFirst
         -- Los §§ del viewer van primero. Los perdidos y los congelados
