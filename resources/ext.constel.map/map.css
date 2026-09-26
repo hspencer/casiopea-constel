@@ -445,11 +445,37 @@
 	font-size: var( --constel-fs-sm );
 }
 
-/* Fusionar: ícono, campo y botón en una sola línea. */
+/* Fusionar: «Fusionar «X» con», campo y botón en una sola línea. */
 .constel-map__moderation .constel-map__merge {
 	flex-wrap: nowrap;
-	max-width: 28rem;
+	align-items: center;
+	max-width: 40rem;
 	margin-top: 0;
+}
+
+.constel-map__merge-lead {
+	overflow: hidden;
+	flex: 0 1 auto;
+	min-width: 0;
+	color: var( --constel-ink-soft );
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.constel-map__merge-concept {
+	color: var( --constel-ink );
+}
+
+.constel-map__merge .constel-field {
+	flex: 1 1 12rem;
+	min-width: 8rem;
+}
+
+/* Bajo el mapa no hay lugar abajo: las sugerencias se abren hacia arriba. */
+.constel-map__merge .constel-ac {
+	top: auto;
+	bottom: 100%;
+	margin: 0 0 var( --constel-s-1 );
 }
 
 .constel-map__moderation .constel-map__merge .constel-button {
@@ -777,9 +803,9 @@
 
 .constel-map--full .constel-map__below:not( :empty ) {
 	flex: none;
-	max-height: 40%;
 	padding: 0 var( --constel-s-3 ) var( --constel-s-2 );
-	overflow-y: auto;
+	/* Sin recorte: la lista de sugerencias de fusionar sale hacia arriba,
+	 * sobre el mapa. */
 }
 
 .constel-map--full .constel-map__side {
@@ -935,4 +961,59 @@
 .constel-mine__filters .constel-actions {
 	display: flex;
 	gap: var( --constel-s-2 );
+}
+
+/* ── Diálogo de confirmación (fusionar) ──────────────────────────────────
+ * Modal nativo: el navegador lo centra en la pantalla y vela el fondo. */
+
+.constel-dialog {
+	box-sizing: border-box;
+	width: min( 28rem, calc( 100vw - 2 * var( --constel-s-4 ) ) );
+	padding: var( --constel-s-4 ) var( --constel-s-4 ) var( --constel-s-3 );
+	border: 1px solid var( --constel-hairline-soft );
+	border-radius: var( --constel-radius-l );
+	background: var( --constel-surface );
+	color: var( --constel-ink );
+	font-family: var( --constel-font-ui );
+	font-size: var( --constel-fs-sm );
+	line-height: 1.45;
+	box-shadow: var( --constel-lift );
+}
+
+.constel-dialog::backdrop {
+	background: color-mix( in oklab, var( --constel-ink ) 28%, transparent );
+}
+
+.constel-dialog__question {
+	margin: 0 0 var( --constel-s-2 );
+	font-size: var( --constel-fs-base );
+	font-weight: 600;
+}
+
+.constel-dialog__note {
+	margin: 0 0 var( --constel-s-3 );
+	color: var( --constel-ink-soft );
+}
+
+.constel-dialog .constel-actions {
+	display: flex;
+	gap: var( --constel-s-2 );
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.constel-dialog[ open ] {
+		animation: constel-dialog-in 180ms var( --constel-ease ) both;
+	}
+}
+
+@keyframes constel-dialog-in {
+	from {
+		opacity: 0;
+		transform: translateY( 6px ) scale( 0.98 );
+	}
+
+	to {
+		opacity: 1;
+		transform: none;
+	}
 }

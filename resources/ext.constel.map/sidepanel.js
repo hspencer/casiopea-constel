@@ -144,8 +144,9 @@ function conceptDetail( box, node, ctx ) {
 
 /**
  * Fusionar el concepto en otro (spec: ModeratorMergesConcepts), en una
- * línea bajo el mapa, con confirmación. Renombrar va en el título del
- * detalle (ModeratorRenamesConcept). Todo queda en Special:Log/constel.
+ * línea bajo el mapa, con confirmación en un diálogo al centro (confirmMerge).
+ * Renombrar va en el título del detalle (ModeratorRenamesConcept). Todo queda
+ * en Special:Log/constel.
  *
  * @param {Object} node
  * @param {Object} ctx {onModerated: (keepId) => void}
@@ -155,46 +156,126 @@ function moderation( node, ctx ) {
 	const section = el( 'section', 'constel-ui constel-map__moderation' );
 	section.setAttribute( 'aria-label', mw.msg( 'constellation-moderate-concept', node.label ) );
 	const fb = feedbackBox();
-	const fail = ( code, r ) => {
-		fb.innerHTML = api.describeError( code, r ).html;
-	};
 
+	// «Fusionar «X» con [concepto]»: sólo con un concepto existente, elegido
+	// de la lista o escrito tal cual se llama; si no, el botón no se habilita.
 	const mergeForm = el( 'form', 'constel-add constel-map__merge' );
-	const mark = el( 'span', 'constel-map__icon' );
-	mark.title = mw.msg( 'constellation-merge-concept', node.label );
-	mark.append( icons.icon( 'git-merge' ) );
+	const intoId = 'constel-merge-into-' + node.id;
+	const lead = el( 'label', 'constel-map__merge-lead' );
+	lead.htmlFor = intoId;
+	lead.append( icons.icon( 'git-merge' ), ' ' );
+	const [ before, after ] = mw.msg( 'constellation-merge-with', '\u0000' ).split( '\u0000' );
+	lead.append( before, el( 'strong', 'constel-map__merge-concept', node.label ), after );
 	const field = el( 'div', 'constel-field' );
 	const into = el( 'input', 'constel-input' );
+	into.id = intoId;
 	into.placeholder = mw.msg( 'constellation-merge-into' );
-	into.setAttribute( 'aria-label', mw.msg( 'constellation-merge-concept', node.label ) );
 	field.append( into );
-	const combo = autocomplete.attach( into );
-	mergeForm.append( mark, field, submitButton( mw.msg( 'constellation-merge' ), 'constel-button--danger' ) );
+	const go = submitButton( mw.msg( 'constellation-merge' ), 'constel-button--danger' );
+	let keep = null;
+	const setKeep = ( concept ) => {
+		keep = concept;
+		go.disabled = !keep;
+	};
+	// Inválido se marca al salir del campo, no mientras se escribe.
+	into.addEventListener( 'blur', () => setTimeout( () => {
+		into.setAttribute( 'aria-invalid', String( !keep && into.value.trim() !== '' ) );
+	}, 300 ) );
+	into.addEventListener( 'focus', () => into.removeAttribute( 'aria-invalid' ) );
+	setKeep( null );
+	const combo = autocomplete.attach( into, {
+		source: ( typed ) => api.searchConcepts( typed ).then( ( found ) => found
+			.filter( ( c ) => c.id !== node.id )
+			.map( ( c ) => ( {
+				label: c.label,
+				value: c,
+				hint: mw.msg( 'constel-suggestion-uses', mw.language.convertNumber( c.uses ), c.uses )
+			} ) ) ),
+		onPick: ( label, item ) => setKeep( item.value )
+	} );
+	// Escrito a mano: vale si coincide exacto con un concepto (identidad estricta).
+	let check = 0;
+	into.addEventListener( 'input', () => {
+		const label = into.value.trim();
+		const mine = ++check;
+		setKeep( null );
+		fb.textContent = '';
+		if ( label && label !== node.label ) {
+			api.conceptByLabel( label ).then( ( found ) => {
+				if ( mine === check && found && found.id !== node.id ) {
+					setKeep( found );
+				}
+			} );
+		}
+	} );
+	mergeForm.append( lead, field, go );
 	mergeForm.addEventListener( 'submit', ( e ) => {
 		e.preventDefault();
-		const label = into.value.trim();
-		if ( !label || combo.isOpen() ) {
+		if ( combo.isOpen() ) {
 			return;
 		}
-		api.conceptByLabel( label ).then( ( keep ) => {
-			if ( !keep ) {
-				fb.textContent = mw.msg( 'constellation-merge-unknown', label );
-				return;
+		if ( !keep ) {
+			if ( into.value.trim() ) {
+				fb.textContent = mw.msg( 'constellation-merge-unknown', into.value.trim() );
 			}
-			const confirm = el( 'div', 'constel-confirm' );
-			confirm.append(
-				el( 'span', null, mw.msg( 'constellation-merge-confirm', node.label, keep.label ) ),
-				button( mw.msg( 'constel-detail-delete-no' ), '', () => confirm.remove() ),
-				button( mw.msg( 'constellation-merge' ), 'constel-button--danger', () => api.write( { action: 'constel-moderate', op: 'merge', concept: node.id, into: keep.id } )
-					.then( () => ctx.onModerated( keep.id ), fail ) )
-			);
-			fb.textContent = '';
-			fb.append( confirm );
-		} );
+			return;
+		}
+		confirmMerge( node, keep, ctx );
 	} );
 
 	section.append( mergeForm, fb );
 	return section;
+}
+
+/**
+ * Confirmación de la fusión: un diálogo flotante al centro de la pantalla
+ * (modal nativo: fondo velado, foco retenido, Esc cancela) con la frase
+ * explícita «Vamos a fusionar «X» en «Y». ¿Lo confirmas?».
+ *
+ * @param {Object} node el concepto que desaparece
+ * @param {Object} keep el que queda {id, label}
+ * @param {Object} ctx {onModerated: (keepId) => void}
+ */
+function confirmMerge( node, keep, ctx ) {
+	const dialog = el( 'dialog', 'constel-ui constel-dialog' );
+	dialog.setAttribute( 'aria-labelledby', 'constel-dialog-q' );
+	const q = el( 'p', 'constel-dialog__question',
+		mw.msg( 'constellation-merge-confirm', node.label, keep.label ) );
+	q.id = 'constel-dialog-q';
+	const fb = feedbackBox();
+	const actions = el( 'div', 'constel-actions' );
+	// Se quita al cerrarse, sin esperar al evento close (que el navegador
+	// encola; Esc sí pasa por él).
+	const dismiss = () => {
+		dialog.close();
+		dialog.remove();
+	};
+	const cancel = button( mw.msg( 'constel-detail-delete-no' ), '', dismiss );
+	const go = button( mw.msg( 'constellation-merge' ), 'constel-button--danger', () => {
+		go.disabled = true;
+		api.write( { action: 'constel-moderate', op: 'merge', concept: node.id, into: keep.id } )
+			.then( () => {
+				dismiss();
+				ctx.onModerated( keep.id );
+			}, ( code, r ) => {
+				go.disabled = false;
+				fb.innerHTML = api.describeError( code, r ).html;
+			} );
+	} );
+	actions.append( cancel, go );
+	dialog.append( q,
+		el( 'p', 'constel-dialog__note', mw.msg( 'constellation-merge-consequence', node.label, keep.label ) ),
+		fb, actions );
+	dialog.addEventListener( 'close', () => dialog.remove() );
+	// Un clic en el velo (fuera de la caja) cancela.
+	dialog.addEventListener( 'click', ( e ) => {
+		if ( e.target === dialog ) {
+			dismiss();
+		}
+	} );
+	document.body.append( dialog );
+	dialog.showModal();
+	cancel.focus();
 }
 
 /**

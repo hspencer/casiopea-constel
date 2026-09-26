@@ -432,6 +432,7 @@
 				"constellation-merge-into",
 				"constellation-merge",
 				"constellation-merge-confirm",
+				"constellation-merge-consequence",
 				"constellation-merge-unknown",
 				"constel-detail-delete-no",
 				"constellation-mode",
@@ -459,7 +460,7 @@
 				"constellation-development-save",
 				"constellation-moderate-concept",
 				"constellation-concept-name",
-				"constellation-merge-concept",
+				"constellation-merge-with",
 				"constellation-unpin"
 			],
 			"dependencies": [

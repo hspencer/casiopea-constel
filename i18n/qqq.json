@@ -109,7 +109,8 @@
 	"constellation-moderate": "Heading of the moderation tools in the concept detail.",
 	"constellation-merge-into": "Placeholder of the merge target field.",
 	"constellation-merge": "Button.",
-	"constellation-merge-confirm": "Confirmation. Parameters:\n* $1 - absorbed concept\n* $2 - kept concept",
+	"constellation-merge-confirm": "Question of the centred confirmation dialog before merging concepts. Parameters:\n* $1 - absorbed concept\n* $2 - kept concept",
+	"constellation-merge-consequence": "Note under the merge question explaining what happens. Parameters:\n* $1 - absorbed concept\n* $2 - kept concept",
 	"constellation-merge-unknown": "Error. Parameters:\n* $1 - typed label",
 	"constel-reading-menu": "Accessible name of the three-position reading control in the user menu (and its text without JavaScript).",
 	"constel-reading-none": "Tooltip and accessible name of the \"−\" option: hide all marks.",
@@ -150,6 +151,6 @@
 	"constellation-development-save": "Button: saves the development of a theme (one text per theme).",
 	"constellation-moderate-concept": "Accessible name of the merge tool shown under the map for the selected concept. Parameters:\n* $1 - concept label",
 	"constellation-concept-name": "Accessible name and tooltip of the concept title, editable by moderators. $1: current concept label.",
-	"constellation-merge-concept": "Accessible name and tooltip of the merge field under the map. $1: concept label.",
+	"constellation-merge-with": "Label before the merge target field under the map; the field follows it. $1: label of the selected concept (shown in bold).",
 	"constellation-unpin": "Tooltip of the 2D map button that releases the concepts pinned by dragging and recomputes the layout."
 }

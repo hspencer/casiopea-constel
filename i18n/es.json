@@ -107,9 +107,10 @@
 	"logentry-constel-merge": "$1 {{GENDER:$2|fusionó}} el concepto de con§tel «$4» en «$5»",
 	"logentry-constel-delete": "$1 {{GENDER:$2|borró}} una sección (§) de con§tel de $4 en $3: «$5»",
 	"constellation-moderate": "Moderar el vocabulario",
-	"constellation-merge-into": "Fusionar en…",
+	"constellation-merge-into": "un concepto existente…",
 	"constellation-merge": "Fusionar",
-	"constellation-merge-confirm": "¿Fusionar «$1» en «$2»? Sus secciones y agrupaciones en temas pasan a «$2», y «$1» desaparece.",
+	"constellation-merge-confirm": "Vamos a fusionar «$1» en «$2». ¿Lo confirmas?",
+	"constellation-merge-consequence": "Sus secciones y agrupaciones en temas pasan a «$2», y «$1» desaparece del vocabulario.",
 	"constellation-merge-unknown": "No existe el concepto «$1». Elige uno existente.",
 	"constel-reading-menu": "con§tel: marcas de lectura",
 	"constel-reading-none": "Sin marcas (lectura limpia)",
@@ -150,6 +151,6 @@
 	"constellation-development-save": "Guardar desarrollo",
 	"constellation-moderate-concept": "Moderar «$1»",
 	"constellation-concept-name": "Nombre del concepto «$1» (edítalo para renombrarlo para todos; Intro guarda, Esc cancela)",
-	"constellation-merge-concept": "Fusionar «$1» en otro concepto",
+	"constellation-merge-with": "Fusionar «$1» con",
 	"constellation-unpin": "Volver al orden automático (suelta los conceptos movidos a mano)"
 }

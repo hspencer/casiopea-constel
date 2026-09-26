@@ -107,9 +107,10 @@
 	"logentry-constel-merge": "$1 {{GENDER:$2|merged}} the con§tel concept \"$4\" into \"$5\"",
 	"logentry-constel-delete": "$1 {{GENDER:$2|deleted}} a con§tel section (§) by $4 on $3: \"$5\"",
 	"constellation-moderate": "Moderate the vocabulary",
-	"constellation-merge-into": "Merge into…",
+	"constellation-merge-into": "an existing concept…",
 	"constellation-merge": "Merge",
-	"constellation-merge-confirm": "Merge \"$1\" into \"$2\"? Its sections and theme groupings move to \"$2\", and \"$1\" disappears.",
+	"constellation-merge-confirm": "We are going to merge “$1” into “$2”. Do you confirm?",
+	"constellation-merge-consequence": "Its sections and theme groupings move to “$2”, and “$1” leaves the vocabulary.",
 	"constellation-merge-unknown": "There is no concept \"$1\". Choose an existing one.",
 	"constel-reading-menu": "con§tel: reading marks",
 	"constel-reading-none": "No marks (clean reading)",
@@ -150,6 +151,6 @@
 	"constellation-development-save": "Save development",
 	"constellation-moderate-concept": "Moderate \"$1\"",
 	"constellation-concept-name": "Concept name “$1” (edit to rename it for everyone; Enter saves, Esc cancels)",
-	"constellation-merge-concept": "Merge “$1” into another concept",
+	"constellation-merge-with": "Merge “$1” with",
 	"constellation-unpin": "Back to the automatic layout (releases the concepts you moved)"
 }
